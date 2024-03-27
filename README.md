@@ -1,5 +1,4 @@
-Github Organisation Mirror
-==========================
+# Github Organisation Mirror
 
 This is a small tool for continually mirroring all the public repositories from
 one Github organisation to another, designed for backing up organisations who
@@ -8,8 +7,7 @@ may take down repositories without notice (such as governments).
 It also ships with a Github Actions configuration that will run the update job
 hourly, and a complete repository/branch scan weekly.
 
-Usage
-=====
+## Usage
 
 * Create a new organisation that will hold all of the repositories you're
   mirroring
@@ -24,8 +22,7 @@ Usage
 * Run the Github Action and sit back, you now have a daily-updated mirror
   of a Github org!
 
-Todo
-====
+## Todo
 
 * Hard fail when upstream branches diverge and we can't update to them
 * When upstream branches are force-pushed, copy our branch to `branchname-diverged-$datetime` and reset to the upstream branch

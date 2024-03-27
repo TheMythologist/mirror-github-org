@@ -2,10 +2,11 @@ import sys
 import os
 import time
 import datetime
-import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
 
+from git import Repo, rmtree
 from github import Github
-from github.GithubException import UnknownObjectException, GithubException
+from github.GithubException import UnknownObjectException
 
 RATE_BUFFER = 100
 EXTRA_WAIT = 60
@@ -32,70 +33,47 @@ def check_rate_limiting(rl):
         print("\n")
 
 
-def mirror(token, src_org, dst_org, full_run=False):
+def mirror(token: str, src_org_str: str, dst_org_str: str, src_repo_str: str):
     g = Github(token)
 
-    src_org = g.get_organization(src_org)
-    dst_org = g.get_organization(dst_org)
+    src_org = g.get_organization(src_org_str)
+    src_repo = src_org.get_repo(src_repo_str)
+    dst_org = g.get_organization(dst_org_str)
 
-    for src_repo in src_org.get_repos("public", sort="pushed", direction="desc"):
-        check_rate_limiting(src_repo)
+    check_rate_limiting(src_repo)
 
-        dst_repo = None
-        try:
-            dst_repo = dst_org.get_repo(src_repo.name)
-        except UnknownObjectException:
-            pass
+    # Create private repository
+    try:
+        dst_repo = dst_org.get_repo(src_repo.name)
+        print(f"{src_repo.name} repository already exists, updating")
+    except UnknownObjectException as e:
+        if e.status != 404:
+            raise
+        print(f"{src_repo.name} repository does not exist, creating")
+        dst_repo = dst_org.create_repo(src_repo.name, private=True)
+        # TODO: Disable github actions
 
-        if not dst_repo:
-            print("\n\nForking %s..." % src_repo.name, end="")
-            try:
-                response = dst_org.create_fork(src_repo)
-            except GithubException as e:
-                if "contains no Git content" in e._GithubException__data["message"]:
-                    # Hit an empty repo, which cannot be forked
-                    print("\n * Skipping empty repository", end="")
-                    continue
-                else:
-                    raise e
+    old_repo_url = (
+        f"https://{token}:x-oauth-basic@github.com/{src_org_str}/{src_repo.name}"
+    )
+    new_repo_url = (
+        f"https://{token}:x-oauth-basic@github.com/{dst_org_str}/{dst_repo.name}"
+    )
 
-        else:
-            print("\n\nSyncing %s..." % src_repo.name, end="")
+    print(f"Cloning {src_repo.name}")
 
-            updated = False
-            for src_branch in src_repo.get_branches():
-                check_rate_limiting(src_branch)
+    repo = Repo.clone_from(
+        old_repo_url,
+        src_repo.name,
+        single_branch=True,
+    )
 
-                print("\n - %s " % src_branch.name, end=""),
-                encoded_name = urllib.parse.quote(src_branch.name)
-
-                try:
-                    dst_ref = dst_repo.get_git_ref(ref="heads/%s" % encoded_name)
-                except UnknownObjectException:
-                    dst_ref = None
-
-                try:
-                    if dst_ref and dst_ref.object:
-                        if src_branch.commit.sha != dst_ref.object.sha:
-                            print("(updated)", end="")
-                            dst_ref.edit(sha=src_branch.commit.sha, force=True)
-                            updated = True
-                    else:
-                        print("(new)", end="")
-                        dst_repo.create_git_ref(
-                            ref="refs/heads/%s" % encoded_name, sha=src_branch.commit.sha
-                        )
-                        updated = True
-
-                except GithubException as e:
-                    if e.status == 422:
-                        print("\n * Github API hit a transient validation error, ignoring for now: ", e, end="")
-                    else:
-                        raise e
-
-            if not full_run and not updated:
-                print("\n\nNo more updates to mirror. Ending run.")
-                sys.exit(0)
+    new_remote = repo.create_remote(
+        "new_remote",
+        new_repo_url,
+    )
+    new_remote.push()
+    rmtree(src_repo.name)
 
 
 if __name__ == "__main__":
@@ -103,12 +81,16 @@ if __name__ == "__main__":
     for param in ("GITHUB_TOKEN", "SRC_ORG", "DST_ORG"):
         p[param] = os.getenv(param)
         if not p[param]:
-            print("No %s supplied in env" % param)
+            print(f"No {param} supplied in env")
             sys.exit(1)
 
-    full_run=False
-    if "--full-run" in sys.argv:
-        print("Doing a full run, will check all repositories and branches - This may take a long time")
-        full_run = True
+    pool = ThreadPoolExecutor()
+    g = Github(p["GITHUB_TOKEN"])
 
-    mirror(p["GITHUB_TOKEN"], p["SRC_ORG"], p["DST_ORG"], full_run=full_run)
+    src_org = g.get_organization(p["SRC_ORG"])
+
+    for src_repo in src_org.get_repos("all", sort="pushed", direction="desc"):
+        pool.submit(
+            mirror, p["GITHUB_TOKEN"], p["SRC_ORG"], p["DST_ORG"], src_repo.name
+        )
+    pool.shutdown()

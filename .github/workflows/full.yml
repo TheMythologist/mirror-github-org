@@ -1,25 +1,25 @@
-name: Full update
+name: Full Clone
 on: 
   workflow_dispatch:
   schedule:
-    - cron: '0 0 * * 0'
+    - cron: '0 0 * * *'
 jobs:
   full-update:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.6' 
-      - name: Build
+          python-version: '3.10' 
+      - name: Install dependencies
+        run: pip install pygithub gitpython
+      - name: Run
         env:
           GITHUB_TOKEN: ${{ secrets.USER_GITHUB_TOKEN }}
           SRC_ORG: ${{ secrets.SRC_ORG }}
           DST_ORG: ${{ secrets.DST_ORG }}
-        run: |
-            pip install pygithub
-            python -u mirror_github_org.py --full-run
+        run: python -u mirror_github_org.py
