@@ -33,12 +33,20 @@ def check_rate_limiting(rl):
         print("\n")
 
 
-def mirror(token: str, src_org_str: str, dst_org_str: str, src_repo_str: str):
+def mirror(
+    token: str,
+    src_org_str: str,
+    dst_org_str: str,
+    src_repo_str: str,
+    push_token: str | None,
+):
+    if push_token is None:
+        push_token = token
     g = Github(token)
 
     src_org = g.get_organization(src_org_str)
     src_repo = src_org.get_repo(src_repo_str)
-    dst_org = g.get_organization(dst_org_str)
+    dst_org = Github(push_token).get_organization(dst_org_str)
 
     check_rate_limiting(src_repo)
 
@@ -57,7 +65,7 @@ def mirror(token: str, src_org_str: str, dst_org_str: str, src_repo_str: str):
         f"https://{token}:x-oauth-basic@github.com/{src_org_str}/{src_repo.name}"
     )
     new_repo_url = (
-        f"https://{token}:x-oauth-basic@github.com/{dst_org_str}/{dst_repo.name}"
+        f"https://{push_token}:x-oauth-basic@github.com/{dst_org_str}/{dst_repo.name}"
     )
 
     print(f"Cloning {src_repo.name}")
@@ -83,6 +91,7 @@ if __name__ == "__main__":
         if not p[param]:
             print(f"No {param} supplied in env")
             sys.exit(1)
+    push_token = os.getenv("PUSH_TOKEN")
 
     pool = ThreadPoolExecutor()
     g = Github(p["GITHUB_TOKEN"])
@@ -91,6 +100,11 @@ if __name__ == "__main__":
 
     for src_repo in src_org.get_repos("all", sort="pushed", direction="desc"):
         pool.submit(
-            mirror, p["GITHUB_TOKEN"], p["SRC_ORG"], p["DST_ORG"], src_repo.name
+            mirror,
+            p["GITHUB_TOKEN"],
+            p["SRC_ORG"],
+            p["DST_ORG"],
+            src_repo.name,
+            push_token,
         )
     pool.shutdown()

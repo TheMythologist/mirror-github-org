@@ -22,4 +22,5 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.USER_GITHUB_TOKEN }}
           SRC_ORG: ${{ secrets.SRC_ORG }}
           DST_ORG: ${{ secrets.DST_ORG }}
+          PUSH_TOKEN: ${{ secrets.PUSH_TOKEN }}
         run: python -u mirror_github_org.py
