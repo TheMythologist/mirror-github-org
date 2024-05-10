@@ -81,7 +81,7 @@ def mirror(
         "new_remote",
         new_repo_url,
     )
-    new_remote.push().raise_if_error()
+    new_remote.push(force=True).raise_if_error()
     rmtree(src_repo.name)
 
 
