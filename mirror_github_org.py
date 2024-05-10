@@ -92,6 +92,8 @@ if __name__ == "__main__":
             print(f"No {param} supplied in env")
             sys.exit(1)
     push_token = os.getenv("PUSH_TOKEN")
+    if push_token == "None":
+        push_token = None
 
     pool = ThreadPoolExecutor()
     g = Github(p["GITHUB_TOKEN"])
