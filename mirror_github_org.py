@@ -2,6 +2,7 @@ import sys
 import os
 import time
 import datetime
+import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 from git import Repo, rmtree
@@ -80,7 +81,7 @@ def mirror(
         "new_remote",
         new_repo_url,
     )
-    new_remote.push()
+    new_remote.push().raise_if_error()
     rmtree(src_repo.name)
 
 
@@ -100,13 +101,20 @@ if __name__ == "__main__":
 
     src_org = g.get_organization(p["SRC_ORG"])
 
+    futures = []
+
     for src_repo in src_org.get_repos("all", sort="pushed", direction="desc"):
-        pool.submit(
-            mirror,
-            p["GITHUB_TOKEN"],
-            p["SRC_ORG"],
-            p["DST_ORG"],
-            src_repo.name,
-            push_token,
+        futures.append(
+            pool.submit(
+                mirror,
+                p["GITHUB_TOKEN"],
+                p["SRC_ORG"],
+                p["DST_ORG"],
+                src_repo.name,
+                push_token,
+            )
         )
+    concurrent.futures.wait(futures)
+    for future in futures:
+        future.result()
     pool.shutdown()
