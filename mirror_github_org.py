@@ -75,6 +75,7 @@ def mirror(
         old_repo_url,
         src_repo.name,
         single_branch=True,
+        env={"GIT_LFS_SKIP_SMUDGE": "1"},
     )
 
     new_remote = repo.create_remote(
