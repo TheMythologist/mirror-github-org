@@ -6,7 +6,7 @@ import concurrent.futures
 from concurrent.futures import ThreadPoolExecutor
 
 from git import Repo, rmtree
-from github import Github
+from github import Auth, Github
 from github.GithubException import UnknownObjectException
 
 RATE_BUFFER = 100
@@ -43,11 +43,11 @@ def mirror(
 ):
     if push_token is None:
         push_token = token
-    g = Github(token)
+    g = Github(auth=Auth.Token(token))
 
     src_org = g.get_organization(src_org_str)
     src_repo = src_org.get_repo(src_repo_str)
-    dst_org = Github(push_token).get_organization(dst_org_str)
+    dst_org = Github(auth=Auth.Token(push_token)).get_organization(dst_org_str)
 
     check_rate_limiting(src_repo)
 
@@ -98,7 +98,7 @@ if __name__ == "__main__":
         push_token = None
 
     pool = ThreadPoolExecutor()
-    g = Github(p["GITHUB_TOKEN"])
+    g = Github(auth=Auth.Token(p["GITHUB_TOKEN"]))
 
     src_org = g.get_organization(p["SRC_ORG"])
 
