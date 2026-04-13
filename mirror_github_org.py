@@ -117,5 +117,8 @@ if __name__ == "__main__":
         )
     concurrent.futures.wait(futures)
     for future in futures:
-        future.result()
+        try:
+            future.result()
+        except Exception as e:
+            print(f"Mirror task failed: {e}")
     pool.shutdown()
