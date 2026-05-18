@@ -11,6 +11,12 @@ from github.GithubException import UnknownObjectException
 RATE_BUFFER = 100
 EXTRA_WAIT = 60
 
+RED = "\033[31m"
+GREEN = "\033[32m"
+YELLOW = "\033[33m"
+CYAN = "\033[36m"
+RESET = "\033[0m"
+
 
 def check_rate_limiting(rl):
     remaining, total = rl._requester.rate_limiting
@@ -22,7 +28,7 @@ def check_rate_limiting(rl):
         ) + datetime.timedelta(seconds=EXTRA_WAIT)
 
         print(
-            "\nWAITING: Remaining rate limit is %s of %s. Waiting %s mins for reset at %s before continuing.\n"
+            f"\n{YELLOW}WAITING: Remaining rate limit is %s of %s. Waiting %s mins for reset at %s before continuing.{RESET}\n"
             % (remaining, total, int((reset_time - time.time()) / 60), reset_time_human)
         )
 
@@ -53,11 +59,11 @@ def mirror(
     # Create private repository
     try:
         dst_repo = dst_org.get_repo(src_repo.name)
-        print(f"{src_repo.name} repository already exists, updating")
+        print(f"{CYAN}{src_repo.name} repository already exists, updating{RESET}")
     except UnknownObjectException as e:
         if e.status != 404:
             raise
-        print(f"{src_repo.name} repository does not exist, creating")
+        print(f"{CYAN}{src_repo.name} repository does not exist, creating{RESET}")
         dst_repo = dst_org.create_repo(src_repo.name, private=True)
         # TODO: Disable github actions
 
@@ -68,7 +74,7 @@ def mirror(
         f"https://{push_token}:x-oauth-basic@github.com/{dst_org_str}/{dst_repo.name}"
     )
 
-    print(f"Cloning {src_repo.name}")
+    print(f"{CYAN}Cloning {src_repo.name}{RESET}")
 
     repo = Repo.clone_from(
         old_repo_url,
@@ -83,6 +89,7 @@ def mirror(
     )
     new_remote.push(force=True).raise_if_error()
     rmtree(src_repo.name)
+    print(f"{GREEN}Successfully mirrored {src_repo.name}{RESET}")
 
 
 if __name__ == "__main__":
@@ -90,7 +97,7 @@ if __name__ == "__main__":
     for param in ("GITHUB_TOKEN", "SRC_ORG", "DST_ORG"):
         p[param] = os.getenv(param)
         if not p[param]:
-            print(f"No {param} supplied in env")
+            print(f"{RED}No {param} supplied in env{RESET}")
             sys.exit(1)
 
     push_token = os.getenv("PUSH_TOKEN")
@@ -126,9 +133,9 @@ if __name__ == "__main__":
             try:
                 future.result()
             except Exception as e:
-                print(f"Mirror task failed for {repo_name}: {e}")
+                print(f"{RED}Mirror task failed for {repo_name}: {e}{RESET}")
                 failed.append(repo_name)
 
     if failed:
-        print(f"\n{len(failed)} mirror task(s) failed: {', '.join(failed)}")
+        print(f"\n{RED}{len(failed)} mirror task(s) failed: {', '.join(failed)}{RESET}")
         sys.exit(1)
