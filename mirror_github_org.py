@@ -3,7 +3,6 @@ import os
 import time
 import datetime
 import concurrent.futures
-from concurrent.futures import ThreadPoolExecutor
 
 from git import Repo, rmtree
 from github import Auth, Github
@@ -93,19 +92,16 @@ if __name__ == "__main__":
         if not p[param]:
             print(f"No {param} supplied in env")
             sys.exit(1)
+
     push_token = os.getenv("PUSH_TOKEN")
     if push_token == "None":
         push_token = None
 
-    pool = ThreadPoolExecutor()
-    g = Github(auth=Auth.Token(p["GITHUB_TOKEN"]))
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        g = Github(auth=Auth.Token(p["GITHUB_TOKEN"]))
+        src_org = g.get_organization(p["SRC_ORG"])
 
-    src_org = g.get_organization(p["SRC_ORG"])
-
-    futures = []
-
-    for src_repo in src_org.get_repos("all", sort="pushed", direction="desc"):
-        futures.append(
+        futures = [
             pool.submit(
                 mirror,
                 p["GITHUB_TOKEN"],
@@ -114,11 +110,11 @@ if __name__ == "__main__":
                 src_repo.name,
                 push_token,
             )
-        )
-    concurrent.futures.wait(futures)
-    for future in futures:
-        try:
-            future.result()
-        except Exception as e:
-            print(f"Mirror task failed: {e}")
-    pool.shutdown()
+            for src_repo in src_org.get_repos("all", sort="pushed", direction="desc")
+        ]
+
+        for future in concurrent.futures.as_completed(futures):
+            try:
+                future.result()
+            except Exception as e:
+                print(f"Mirror task failed: {e}")
