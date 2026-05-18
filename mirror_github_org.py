@@ -87,7 +87,28 @@ def mirror(
         "new_remote",
         new_repo_url,
     )
-    new_remote.push(force=True).raise_if_error()
+
+    branch_name = repo.active_branch.name
+    try:
+        new_remote.fetch()
+        remote_commit = repo.commit(f"new_remote/{branch_name}")
+    except Exception:
+        remote_commit = None
+
+    if remote_commit is not None and not repo.is_ancestor(
+        remote_commit, repo.head.commit
+    ):
+        timestamp = datetime.datetime.now(datetime.UTC).strftime("%Y%m%dT%H%M%SZ")
+        backup_branch = f"{branch_name}-diverged-{timestamp}"
+        print(
+            f"{YELLOW}Divergence detected for {src_repo.name}/{branch_name}; "
+            f"preserving destination history at {backup_branch}{RESET}"
+        )
+        new_remote.push(
+            refspec=f"{remote_commit.hexsha}:refs/heads/{backup_branch}"
+        ).raise_if_error()
+
+    new_remote.push(force_with_lease=True).raise_if_error()
     rmtree(src_repo.name)
     print(f"{GREEN}Successfully mirrored {src_repo.name}{RESET}")
 
