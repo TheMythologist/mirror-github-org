@@ -97,6 +97,12 @@ if __name__ == "__main__":
     if push_token == "None":
         push_token = None
 
+    skip_repos = {
+        name.strip()
+        for name in os.getenv("SKIP_REPOS", "").split(",")
+        if name.strip()
+    }
+
     with concurrent.futures.ThreadPoolExecutor() as pool:
         g = Github(auth=Auth.Token(p["GITHUB_TOKEN"]))
         src_org = g.get_organization(p["SRC_ORG"])
@@ -111,6 +117,7 @@ if __name__ == "__main__":
                 push_token,
             ): src_repo.name
             for src_repo in src_org.get_repos("all", sort="pushed", direction="desc")
+            if src_repo.name not in skip_repos
         }
 
         for future in concurrent.futures.as_completed(futures):
