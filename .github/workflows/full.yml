@@ -14,9 +14,10 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.14' 
+          python-version: '3.14'
+          cache: 'pip'
       - name: Install dependencies
-        run: pip install pygithub gitpython
+        run: pip install -r requirements.txt
       - name: Run
         env:
           GITHUB_TOKEN: ${{ secrets.USER_GITHUB_TOKEN }}
