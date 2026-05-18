@@ -120,9 +120,15 @@ if __name__ == "__main__":
             if src_repo.name not in skip_repos
         }
 
+        failed = []
         for future in concurrent.futures.as_completed(futures):
             repo_name = futures[future]
             try:
                 future.result()
             except Exception as e:
                 print(f"Mirror task failed for {repo_name}: {e}")
+                failed.append(repo_name)
+
+    if failed:
+        print(f"\n{len(failed)} mirror task(s) failed: {', '.join(failed)}")
+        sys.exit(1)
