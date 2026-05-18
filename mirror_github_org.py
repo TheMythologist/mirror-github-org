@@ -101,7 +101,7 @@ if __name__ == "__main__":
         g = Github(auth=Auth.Token(p["GITHUB_TOKEN"]))
         src_org = g.get_organization(p["SRC_ORG"])
 
-        futures = [
+        futures = {
             pool.submit(
                 mirror,
                 p["GITHUB_TOKEN"],
@@ -109,12 +109,13 @@ if __name__ == "__main__":
                 p["DST_ORG"],
                 src_repo.name,
                 push_token,
-            )
+            ): src_repo.name
             for src_repo in src_org.get_repos("all", sort="pushed", direction="desc")
-        ]
+        }
 
         for future in concurrent.futures.as_completed(futures):
+            repo_name = futures[future]
             try:
                 future.result()
             except Exception as e:
-                print(f"Mirror task failed: {e}")
+                print(f"Mirror task failed for {repo_name}: {e}")
